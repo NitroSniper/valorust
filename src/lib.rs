@@ -1,4 +1,6 @@
+//#![warn(missing_docs)]
 use serde::{Deserialize, Serialize};
+
 
 const API_END_POINT: &str = "https://api.henrikdev.xyz/valorant";
 
@@ -24,7 +26,7 @@ pub struct ApiError {
 
 pub trait ValorantAPIData {}
 
-mod account_data {
+pub mod account_data {
     use super::ValorantAPIData;
     use crate::{ApiResponse, API_END_POINT};
     use serde::{Deserialize, Serialize};
@@ -57,11 +59,12 @@ mod account_data {
         wide: String,
         id: String,
     }
-
+    
     impl ValorantAPIData for AccountData {}
+    
 
     impl AccountData {
-        async fn get_data(name: &str, tag: &str) -> Result<ApiResponse<Self>, reqwest::Error> {
+        async fn new(name: &str, tag: &str) -> Result<ApiResponse<Self>, reqwest::Error> {
             Ok(
                 reqwest::get(format!("{API_END_POINT}/v1/account/{name}/{tag}"))
                     .await?
@@ -171,7 +174,7 @@ mod account_data {
 
         #[tokio::test]
         async fn make_request() {
-            let result = AccountData::get_data("NitroSniper", "NERD").await.unwrap();
+            let result = AccountData::new("NitroSniper", "NERD").await.unwrap();
             dbg!(result);
         }
     }
