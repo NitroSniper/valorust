@@ -1,20 +1,13 @@
 //#![warn(missing_docs)]
 use serde::{Deserialize, Serialize};
 
-
 const API_END_POINT: &str = "https://api.henrikdev.xyz/valorant";
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub enum ApiResponse<T: ValorantAPIData> {
-    Success {
-        status: u32,
-        data: T,
-    },
-    Failure {
-        status: u32,
-        errors: Vec<ApiError>,
-    },
+    Success { status: u32, data: T },
+    Failure { status: u32, errors: Vec<ApiError> },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -26,18 +19,17 @@ pub struct ApiError {
 
 pub trait ValorantAPIData {}
 
-mod mrr_data {
-    use super::{ValorantAPIData, AccountRegion};
+mod mmr_data {
+    use super::{AccountRegion, ValorantAPIData};
     use crate::{ApiResponse, API_END_POINT};
     use serde::{Deserialize, Serialize};
 
-    
     #[derive(Serialize, Deserialize, Debug)]
-    pub struct MRRData {
+    pub struct MMRData {
         puuid: String,
         name: String,
         tag: String,
-        current_data: CurrentActData
+        current_data: CurrentActData,
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -51,7 +43,7 @@ mod mrr_data {
         mmr_change_to_last_game: i32,
         elo: u32,
         games_needed_for_rating: u32,
-        old: bool
+        old: bool,
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -59,19 +51,24 @@ mod mrr_data {
         small: String,
         large: String,
         triangle_down: String,
-        triangle_up: String
+        triangle_up: String,
     }
 
-    impl ValorantAPIData for MRRData {}
+    impl ValorantAPIData for MMRData {}
 
-    impl MRRData {
-        async fn new(region: AccountRegion, name: &str, tag: &str) -> Result<ApiResponse<Self>, reqwest::Error> {
-            Ok(
-                reqwest::get(format!("{API_END_POINT}/v2/mmr/{}/{name}/{tag}", region.to_string()))
-                .await?
-                .json()
-                .await?,
-                )
+    impl MMRData {
+        async fn new(
+            region: AccountRegion,
+            name: &str,
+            tag: &str,
+        ) -> Result<ApiResponse<Self>, reqwest::Error> {
+            Ok(reqwest::get(format!(
+                "{API_END_POINT}/v2/mmr/{}/{name}/{tag}",
+                region.to_string()
+            ))
+            .await?
+            .json()
+            .await?)
         }
     }
     #[cfg(test)]
@@ -81,13 +78,13 @@ mod mrr_data {
 
         #[tokio::test]
         async fn make_request() {
-            let result = MRRData::new(AccountRegion::EU, "NitroSniper", "NERD").await.unwrap();
+            let result = MMRData::new(AccountRegion::EU, "NitroSniper", "NERD")
+                .await
+                .unwrap();
             dbg!(result);
         }
     }
-
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -110,7 +107,7 @@ impl AccountRegion {
 }
 
 pub mod account_data {
-    use super::{ValorantAPIData, AccountRegion};
+    use super::{AccountRegion, ValorantAPIData};
     use crate::{ApiResponse, API_END_POINT};
     use serde::{Deserialize, Serialize};
     #[derive(Serialize, Deserialize, Debug)]
@@ -125,7 +122,6 @@ pub mod account_data {
         last_update_raw: u32,
     }
 
-
     #[derive(Serialize, Deserialize, Debug)]
     pub struct ProfileBanner {
         small: String,
@@ -133,9 +129,8 @@ pub mod account_data {
         wide: String,
         id: String,
     }
-    
+
     impl ValorantAPIData for AccountData {}
-    
 
     impl AccountData {
         async fn new(name: &str, tag: &str) -> Result<ApiResponse<Self>, reqwest::Error> {
