@@ -1,5 +1,5 @@
 //#![warn(missing_docs)]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 const API_END_POINT: &str = "https://api.henrikdev.xyz/valorant";
 
@@ -17,7 +17,69 @@ pub struct ApiError {
     details: String,
 }
 
-pub trait ValorantAPIData {}
+pub trait ValorantAPIData: Serialize + DeserializeOwned {}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum AccountRegion {
+    EU,
+    NA,
+    KR,
+    AS,
+}
+impl AccountRegion {
+    fn to_string(&self) -> String {
+        match self {
+            AccountRegion::EU => "eu",
+            AccountRegion::NA => "na",
+            AccountRegion::KR => "kr",
+            AccountRegion::AS => "as",
+        }
+        .to_string()
+    }
+}
+
+pub struct ValorantClient<'a> {
+    api_end_point: &'a str
+}
+
+impl<'a> ValorantClient<'a> {
+    fn new() -> Self {
+        ValorantClient { api_end_point:  "https://docs.henrikdev.xyz/valorant" }
+    }
+
+    fn change_api_endpoint(mut self, endpoint: &'a str) -> Self {
+        self.api_end_point = endpoint;
+        self
+    }
+    pub async fn request<T: ValorantAPIData>(&self, url: ValorantAPIURL) -> Result<T, reqwest::Error> {
+        
+            Ok(reqwest::get(format!(
+                "{}/{}", self.api_end_point, url.0)
+            )
+            .await?
+            .json()
+            .await?)
+    }
+}
+
+pub struct ValorantAPIURL(String);
+
+
+pub mod prelude {
+    pub use crate::ValorantClient;
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{prelude::*, AccountRegion};
+    #[test]
+    fn making_a_call() {
+        let api_user = ValorantClient::new();
+        api_user.request::<AccountRegion>()
+    }
+}
 
 mod mmr_data {
     use super::{AccountRegion, ValorantAPIData};
@@ -78,7 +140,7 @@ mod mmr_data {
 
         #[tokio::test]
         async fn make_request() {
-            let result = MMRData::new(AccountRegion::EU, "NitroSniper", "NERD")
+            let result = ValorantClient::<MMRData>::new(AccountRegion::EU, "NitroSniper", "NERD")
                 .await
                 .unwrap();
             dbg!(result);
@@ -86,25 +148,6 @@ mod mmr_data {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum AccountRegion {
-    EU,
-    NA,
-    KR,
-    AS,
-}
-impl AccountRegion {
-    fn to_string(&self) -> String {
-        match self {
-            AccountRegion::EU => "eu",
-            AccountRegion::NA => "na",
-            AccountRegion::KR => "kr",
-            AccountRegion::AS => "as",
-        }
-        .to_string()
-    }
-}
 
 pub mod account_data {
     use super::{AccountRegion, ValorantAPIData};
