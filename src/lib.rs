@@ -1,3 +1,4 @@
+use prelude::EpisodeAndAct;
 //#![warn(missing_docs)]
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -78,6 +79,7 @@ pub enum ValorantApiType<'a> {
         region: AccountRegion,
         name: &'a str,
         tag: &'a str,
+        filter: Option<EpisodeAndAct>
     },
     AccountData {
         name: &'a str,
@@ -88,7 +90,7 @@ pub enum ValorantApiType<'a> {
 impl<'a> ValorantApiType<'a> {
     pub fn to_url(&self) -> String {
         match self {
-            Self::MMRData { region, name, tag } => {
+            Self::MMRData { region, name, tag, filter} => {
                 format!("v2/mmr/{}/{}/{}", region.to_value(), name, tag)
             }
             Self::AccountData { name, tag } => {
@@ -105,6 +107,7 @@ pub mod prelude {
     pub use crate::ApiResponse;
     pub use crate::ValorantApiType;
     pub use crate::ValorantClient;
+    pub use crate::mmr_data::EpisodeAndAct;
 }
 
 #[cfg(test)]
@@ -135,6 +138,7 @@ mod test {
                 region: AccountRegion::EU,
                 name: "NitroSniper",
                 tag: "NERD",
+                filter: None
             })
             .await
             .unwrap();
@@ -184,10 +188,17 @@ pub mod mmr_data {
         patched_tier: String,
         season: EpisodeAndAct
     }
+
     #[derive(Debug)]
-    struct EpisodeAndAct {
+    pub struct EpisodeAndAct {
         episode: u32,
         act: u32,
+    }
+
+    impl EpisodeAndAct {
+        pub fn to_value(&self) -> String {
+            format!("e{}a{}", self.episode, self.act)
+        }
     }
 
     // Create a Serialize and Deserialize implementation for SeasonAndActData that turn season and
@@ -208,25 +219,36 @@ pub mod mmr_data {
             D: serde::Deserializer<'de>,
         {
             let string = String::deserialize(deserializer)?;
-            // write these asserts as guards
-            if string.len() != 4 {
-                return Err(serde::de::Error::custom("Invalid length"));
+
+            let chars = string.chars().collect::<Vec<_>>();
+            let (e, episode_number, a, act_number) = match chars.as_slice() {
+                [e, episode_number, a, act_number] => (*e, *episode_number, *a, *act_number),
+                _ => {
+                    return Err(serde::de::Error::custom("Invalid length"));
+                },
+            };
+            // write serde Errors where it checks them and return good error along with the values
+            if e != 'e' || a != 'a' {
+                return Err(serde::de::Error::custom(format!("Invalid format, format recieved: {string}")));
             }
-            if string[1..2].parse::<u32>().is_err() {
-                return Err(serde::de::Error::custom("Invalid episode"));
-            }
-            if !((1..=3).contains(&string[3..4].to_owned().parse::<u32>().unwrap())) {
-                return Err(serde::de::Error::custom("Invalid act since it is greater than 3"));
+            if !episode_number.is_numeric() || !act_number.is_numeric() {
+                return Err(serde::de::Error::custom(format!("Invalid format, format recieved: {string}")));
             }
 
             // get the data
-            let episode = string[1..2].parse().unwrap();
-            let act = string[3..4].parse().unwrap();
-            Ok(Self { episode, act })
+            Ok(Self { episode: episode_number.into(), act: act_number.into() })
         }
     }
 
     impl ValorantAPIData for MMRData {}
+
+    struct ActRankStats {
+        wins: u32,
+        number_of_games: u32,
+        final_rank: u32,
+
+    }
+    
 
     #[cfg(test)]
     mod test {
